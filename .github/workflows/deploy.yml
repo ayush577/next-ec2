@@ -14,11 +14,10 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
-          # Optional: Add the host key to known_hosts to avoid the prompt
-          # If you don't have the host key, you can use StrictHostKeyChecking=no instead
-          echo "${{ secrets.EC2_HOST_KEY }}" >> ~/.ssh/known_hosts
-      
+
+          # Optionally skip host key check (for now)
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
       - name: Connect to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
