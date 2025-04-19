@@ -1,83 +1,28 @@
-# .github/workflows/deploy.yml
-name: Deploy Next.js to EC2
+name: EC2 SSH Connection
 
 on:
   push:
-    branches: [master] # Trigger on push to main branch
-  pull_request:
-    branches: [master] # Trigger on PR to main branch
+    branches: [master]
 
 jobs:
-  deploy:
+  connect:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-
-      - name: Build application
-        run: npm run build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Create SSH directory
-        run: mkdir -p ~/.ssh
-
-      - name: Add SSH key
+      - name: Setup SSH
         run: |
+          mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-
-      - name: Add host key
-        run: |
+          
+          # Optional: Add the host key to known_hosts to avoid the prompt
+          # If you don't have the host key, you can use StrictHostKeyChecking=no instead
           echo "${{ secrets.EC2_HOST_KEY }}" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Deploy to EC2
+      
+      - name: Connect to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
-          # Create deployment archive
-          tar -czf deploy.tar.gz .next package*.json public
-
-          # Copy files to EC2
-          scp -i ~/.ssh/id_rsa deploy.tar.gz $EC2_USERNAME@$EC2_HOST:~/
-
-          # Execute deployment commands
-          ssh -i ~/.ssh/id_rsa $EC2_USERNAME@$EC2_HOST '
-            # Stop existing PM2 process if exists
-            pm2 stop next-ec2 || true
-            
-            # Clean up old deployment
-            rm -rf .next
-            
-            # Extract new deployment
-            tar -xzf deploy.tar.gz
-            
-            # Install production dependencies
-            npm ci --only=production
-            
-            # Start application with PM2
-            pm2 start npm --name "next-ec2" -- start
-            
-            # Clean up
-            rm deploy.tar.gz
-          '
+          # Simple test to verify connection
+          ssh -i ~/.ssh/id_rsa $EC2_USERNAME@$EC2_HOST 'echo "Successfully connected to EC2 instance $(hostname)"'
